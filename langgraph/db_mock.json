@@ -1,0 +1,23 @@
+{
+  "latest_project_schema": {
+    "api_title": "My Test API",
+    "base_url": "/",
+    "endpoints": [
+      {
+        "method": "POST",
+        "path": "/users",
+        "description": "Create a user"
+      },
+      {
+        "method": "GET",
+        "path": "/users",
+        "description": "List users"
+      },
+      {
+        "method": "GET",
+        "path": "/orders",
+        "description": "List orders"
+      }
+    ]
+  }
+}

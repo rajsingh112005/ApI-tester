@@ -1,0 +1,13 @@
+# AI & Graph Framework
+langgraph
+langchain
+langchain-openai  # Or langchain-anthropic if you use Claude
+pydantic
+
+# API Server
+fastapi
+uvicorn
+
+# Utilities
+python-dotenv
+requests

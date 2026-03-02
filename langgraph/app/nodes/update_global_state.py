@@ -1,41 +1,30 @@
 import json
 import os
 from ..state import AgentState
+from app.db import db_client
 
 DB_FILE = "db_mock.json"
 
 def update_global_state_node(state: AgentState) -> dict:
-    print("💾 Node: Update Global State - Saving to Database...")
+    print("Node: Update Global State - Saving to Database...")
     
-    # 1. Get the new schema from the previous node
-    new_schema = state.get("global_schema")
+    project_id = state.get("project_id", "default_project") # Fallback for now
+    new_schema = state.get("global_schema", {})
+    demo_data = state.get("demo_data", {})
     
     if not new_schema:
         print("Archivist: No schema data found to save.")
         return {"processing_logs": ["No schema to save."]}
 
     try:
-        current_db = {}
-        if os.path.exists(DB_FILE):
-            with open(DB_FILE, "r") as f:
-                try:
-                    current_db = json.load(f)
-                except json.JSONDecodeError:
-                    current_db = {}
+        # Save both schema and demo data using the updated DB client
+        db_client.save_project_data(project_id, new_schema, demo_data)
+        print(f"Archivist: Knowledge Base & Demo Data updated for '{project_id}'.")
         
-        
-        current_db["latest_project_schema"] = new_schema
-        
-        # Save back to file
-        with open(DB_FILE, "w") as f:
-            json.dump(current_db, f, indent=2)
-            
-        print(" Archivist: Knowledge Base Updated Successfully.")
+        return {
+            "processing_logs": [f"Saved schema and {len(demo_data.get('records', []))} mock records to DB."]
+        }
         
     except Exception as e:
-        print(f" Archivist Error: DB Write failed. {e}")
+        print(f"Archivist Error: DB Write failed. {e}")
         return {"processing_logs": [f"DB Write Error: {e}"]}
-
-    return {
-        "processing_logs": ["Global Schema saved to db_mock.json"]
-    }

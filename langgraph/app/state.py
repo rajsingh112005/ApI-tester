@@ -10,13 +10,14 @@ class TestJob(TypedDict):
 #main graph states
 class AgentState(TypedDict):
     request_id: str
+    project_id: str
     raw_input: Dict[str , Any]
-
     # determining which node to take
     route_decision: str
 
     #global knolwedge
     global_schema: Dict[str , Any]
+    demo_data: Dict[str , Any]
     test_plans: List[Dict[str , Any]]
     # operator.add ensures we append to logs/jobs instead of overwriting
     generated_jobs: Annotated[List[TestJob], operator.add]

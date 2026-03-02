@@ -10,12 +10,10 @@ class RequestPayload(BaseModel):
 
 #node logic for intent classification
 def intent_classifier_node(state: AgentState) -> dict:
-    print("🚦 Node: Intent Classifier - Analyzing Request...")
+    print("Node: Intent Classifier - Analyzing Request...")
     
-    # raw input from the state
     raw_input = state.get("raw_input", {})
     
-    # Validate Input
     try:
         request = RequestPayload(**raw_input)
     except ValidationError as e:
@@ -26,7 +24,6 @@ def intent_classifier_node(state: AgentState) -> dict:
             "processing_logs": [f"Input validation failed: {e}"]
         }
     
-    #decision logic (the "router")
     route_decision = ""
     logs=[]
 
@@ -39,7 +36,6 @@ def intent_classifier_node(state: AgentState) -> dict:
         logs.append("Action: GENERATE_TEST detected.")
         
     else:
-        # If we see "openapi" or "swagger" in the payload, it's a schema.
         payload_str = str(request.payload).lower()
         if "openapi" in payload_str or "swagger" in payload_str:
             route_decision = "schema_path"
@@ -48,7 +44,6 @@ def intent_classifier_node(state: AgentState) -> dict:
             route_decision = "test_path"
             logs.append("Auto-detected Test Generation request.")
 
-    # Update the State with our decision
     return {
         "request_id": request.request_id,
         "route_decision": route_decision,

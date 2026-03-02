@@ -1,0 +1,66 @@
+{
+  "tenant_blog_project_123": {
+    "schema": {
+      "api_title": "My Awesome Blog API",
+      "base_url": "/",
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/users",
+          "description": "Create a new user"
+        },
+        {
+          "method": "POST",
+          "path": "/blogs",
+          "description": "Create a new blog post"
+        },
+        {
+          "method": "POST",
+          "path": "/comments",
+          "description": "Add a comment to a blog"
+        }
+      ]
+    },
+    "demo_data": {
+      "records": [
+        {
+          "endpoint": "/users",
+          "method": "POST",
+          "payload": {
+            "username": "johndoe",
+            "email": "john.doe@example.com",
+            "password": "SecurePassword123!",
+            "firstName": "John",
+            "lastName": "Doe",
+            "status": "active"
+          }
+        },
+        {
+          "endpoint": "/blogs",
+          "method": "POST",
+          "payload": {
+            "title": "The Future of AI in Software Development",
+            "content": "Artificial intelligence is rapidly transforming the landscape of software development, offering tools for code generation, bug detection, and automated testing...",
+            "authorId": "654321abcd",
+            "tags": [
+              "AI",
+              "Software Development",
+              "Technology"
+            ],
+            "published": true
+          }
+        },
+        {
+          "endpoint": "/comments",
+          "method": "POST",
+          "payload": {
+            "blogId": "987654efgh",
+            "userId": "654321abcd",
+            "content": "Great article! I especially agree with your points on AI-driven testing. It's truly a game-changer for efficiency.",
+            "timestamp": "2023-10-27T10:30:00Z"
+          }
+        }
+      ]
+    }
+  }
+}

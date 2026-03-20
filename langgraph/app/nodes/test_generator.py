@@ -26,7 +26,7 @@ class JobBatch(BaseModel):
     jobs: List[ExecutionJob]
 
 def test_generator_node(state: AgentState) -> Dict:
-    print("🔨 Node: Test Generator - Building Stateful Payloads...")
+    print("Node: Test Generator - Building Stateful Payloads...")
     
     plans = state.get("test_plans", [])
     schema = state.get("global_schema", {})
@@ -77,29 +77,38 @@ def test_generator_node(state: AgentState) -> Dict:
             "format_instructions": parser.get_format_instructions()
         })
         
-        raw_jobs = result.get("jobs", [])
+        # --- ROBUST PARSING LOGIC ---
+        if isinstance(result, dict):
+            raw_jobs = result.get("jobs", [])
+        elif isinstance(result, list):
+            raw_jobs = result
+        else:
+            raw_jobs = []
+        
         final_jobs: List[TestJob] = []
         
         for job in raw_jobs:
-            final_jobs.append({
-                "trace_id": str(uuid.uuid4()),
-                "execution_instruction": {
-                    "setup": job.get("setup_request"),
-                    "test": job.get("test_request")
-                },
-                "pass_along_context": {
-                    "original_plan_id": job.get("scenario_id")
-                }
-            })
+            # Ensure the job is a dictionary before trying to extract keys
+            if isinstance(job, dict):
+                final_jobs.append({
+                    "trace_id": str(uuid.uuid4()),
+                    "execution_instruction": {
+                        "setup": job.get("setup_request"),
+                        "test": job.get("test_request")
+                    },
+                    "pass_along_context": {
+                        "original_plan_id": job.get("scenario_id")
+                    }
+                })
 
-        print(f"✅ Generator: Built {len(final_jobs)} stateful executable jobs.")
+        print(f"Generator: Built {len(final_jobs)} stateful executable jobs.")
         return {
             "generated_jobs": final_jobs,
             "processing_logs": [f"Generated {len(final_jobs)} jobs"]
         }
 
     except Exception as e:
-        print(f"❌ Generator Error: {e}")
+        print(f"Generator Error: {e}")
         return {
             "generated_jobs": [],
             "processing_logs": [f"Generator Failed: {str(e)}"]

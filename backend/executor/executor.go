@@ -1,35 +1,34 @@
 package executor
 
 import (
+	"api-tester/backend/helpers"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
-	"os"
 	"strings"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-func Run(cfg Config) error {
+func Run(cfg Config) (ProjectExecutionReport, error) {
 	conn, err := amqp.Dial(cfg.RabbitURL)
 	if err != nil {
-		return fmt.Errorf("rabbitmq dial failed: %w", err)
+		return ProjectExecutionReport{}, fmt.Errorf("rabbitmq dial failed: %w", err)
 	}
 	defer conn.Close()
 
 	ch, err := conn.Channel()
 	if err != nil {
-		return fmt.Errorf("rabbitmq channel failed: %w", err)
+		return ProjectExecutionReport{}, fmt.Errorf("rabbitmq channel failed: %w", err)
 	}
 	defer ch.Close()
 
 	_, err = ch.QueueDeclare(cfg.QueueName, true, false, false, false, nil)
 	if err != nil {
-		return fmt.Errorf("queue declare failed: %w", err)
+		return ProjectExecutionReport{}, fmt.Errorf("queue declare failed: %w", err)
 	}
 
 	report := ProjectExecutionReport{
@@ -46,7 +45,7 @@ func Run(cfg Config) error {
 	for {
 		msg, ok, getErr := ch.Get(cfg.QueueName, false)
 		if getErr != nil {
-			return fmt.Errorf("queue read failed: %w", getErr)
+			return ProjectExecutionReport{}, fmt.Errorf("queue read failed: %w", getErr)
 		}
 
 		if !ok {
@@ -73,17 +72,12 @@ func Run(cfg Config) error {
 		report.EndpointResults = append(report.EndpointResults, result)
 
 		if ackErr := msg.Ack(false); ackErr != nil {
-			return fmt.Errorf("ack failed: %w", ackErr)
+			return ProjectExecutionReport{}, fmt.Errorf("ack failed: %w", ackErr)
 		}
 	}
 
 	report.CompletedAt = time.Now().UTC()
-
-	if err := writeReport(report, cfg.OutputFile); err != nil {
-		return err
-	}
-
-	return nil
+	return report, nil
 }
 
 func processMessage(cfg Config, client *http.Client, body []byte) (JobExecutionResult, error) {
@@ -111,7 +105,7 @@ func processMessage(cfg Config, client *http.Client, body []byte) (JobExecutionR
 		setupResult := executeRequest(client, cfg.BaseURL, *message.Payload.Setup, "")
 		result.SetupResult = &setupResult
 		if setupResult.Error == "" {
-			setupID = extractResourceID(setupResult.ResponseBody)
+			setupID = helpers.ExtractResourceID(setupResult.ResponseBody)
 		}
 	}
 
@@ -128,7 +122,7 @@ func executeRequest(client *http.Client, baseURL string, req RequestDetails, set
 		resolvedPath = strings.ReplaceAll(resolvedPath, "{{setup_id}}", setupID)
 	}
 
-	fullURL, urlErr := buildURL(baseURL, resolvedPath, req.Params)
+	fullURL, urlErr := helpers.BuildURL(baseURL, resolvedPath, req.Params)
 	if urlErr != nil {
 		return RequestExecutionResult{
 			Method: req.Method,
@@ -180,82 +174,4 @@ func executeRequest(client *http.Client, baseURL string, req RequestDetails, set
 		StatusCode:   httpResp.StatusCode,
 		ResponseBody: string(respBytes),
 	}
-}
-
-func buildURL(baseURL string, path string, params map[string]interface{}) (string, error) {
-	base := strings.TrimRight(baseURL, "/")
-	rel := path
-	if !strings.HasPrefix(rel, "/") {
-		rel = "/" + rel
-	}
-
-	u, err := url.Parse(base + rel)
-	if err != nil {
-		return "", err
-	}
-
-	if len(params) == 0 {
-		return u.String(), nil
-	}
-
-	query := u.Query()
-	for key, value := range params {
-		query.Set(key, fmt.Sprintf("%v", value))
-	}
-	u.RawQuery = query.Encode()
-	return u.String(), nil
-}
-
-func extractResourceID(responseBody string) string {
-	if strings.TrimSpace(responseBody) == "" {
-		return ""
-	}
-
-	var payload map[string]any
-	if err := json.Unmarshal([]byte(responseBody), &payload); err != nil {
-		return ""
-	}
-
-	candidateKeys := []string{"id", "_id", "user_id", "resource_id"}
-	for _, key := range candidateKeys {
-		if value, ok := payload[key]; ok {
-			return fmt.Sprintf("%v", value)
-		}
-	}
-	if nested, ok := payload["data"].(map[string]any); ok {
-		for _, key := range candidateKeys {
-			if value, exists := nested[key]; exists {
-				return fmt.Sprintf("%v", value)
-			}
-		}
-	}
-
-	return ""
-}
-
-func writeReport(report ProjectExecutionReport, outputPath string) error {
-	if outputPath == "" {
-		outputPath = fmt.Sprintf("executor-report-%s.json", sanitizeName(report.ProjectID))
-	}
-
-	content, err := json.MarshalIndent(report, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to serialize report: %w", err)
-	}
-
-	if err := os.WriteFile(outputPath, content, 0o644); err != nil {
-		return fmt.Errorf("failed to write report: %w", err)
-	}
-
-	fmt.Printf("Executor completed project %s with %d jobs (%d failed). Report: %s\n", report.ProjectID, report.JobsProcessed, report.JobsFailed, outputPath)
-	return nil
-}
-
-func sanitizeName(value string) string {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return "unknown"
-	}
-	replacer := strings.NewReplacer("/", "-", "\\", "-", " ", "-", ":", "-")
-	return replacer.Replace(trimmed)
 }

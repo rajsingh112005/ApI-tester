@@ -31,30 +31,18 @@ func RunExecutorController(c *gin.Context) {
 		QueueName:      envOrDefault("RABBIT_QUEUE", "test_jobs_queue"),
 		BaseURL:        req.BaseURL,
 		ProjectID:      envOrDefault("EXECUTOR_PROJECT_ID", "default_project"),
-		OutputFile:     envOrDefault("EXECUTOR_OUTPUT_FILE", ""),
 		PollInterval:   time.Second,
 		IdleTimeout:    12 * time.Second,
 		RequestTimeout: 20 * time.Second,
 	}
 
-	go func(config executor.Config) {
-		_ = executor.Run(config)
-	}(cfg)
-
-	c.JSON(http.StatusAccepted, gin.H{
-		"status":     "started",
-		"project_id": cfg.ProjectID,
-		"base_url":   cfg.BaseURL,
-		"queue_name": cfg.QueueName,
-	})
-}
-
-func defaultString(value string, fallback string) string {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return fallback
+	report, err := executor.Run(cfg)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
 	}
-	return trimmed
+
+	c.JSON(http.StatusOK, report)
 }
 
 func envOrDefault(key string, fallback string) string {

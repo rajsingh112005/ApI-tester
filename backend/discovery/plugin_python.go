@@ -19,7 +19,7 @@ func (p *PythonPlugin) IsHTTPMethod(method string) bool {
 		"put":    true,
 		"patch":  true,
 		"delete": true,
-		"route":  true, // Flask uses @app.route for all methods
+		"route":  true,
 	}
 	return methods[strings.ToLower(method)]
 }
@@ -31,7 +31,6 @@ func (p *PythonPlugin) CleanRoutePath(raw string) string {
 func (p *PythonPlugin) Queries() LanguageQueries {
 	return LanguageQueries{
 
-		
 		Route: `
 (decorated_definition
   (decorator
@@ -53,7 +52,7 @@ func (p *PythonPlugin) Queries() LanguageQueries {
   parameters: (parameters) @params
   body: (block) @body)
 `,
-        MountPoint: `
+		MountPoint: `
 (call
   function: (attribute
     object: (identifier) @app
@@ -65,7 +64,7 @@ func (p *PythonPlugin) Queries() LanguageQueries {
       value: (string) @prefix)))
 `,
 
-RouterCreation: `
+		RouterCreation: `
 (assignment
   left: (identifier) @router_name
   right: (call
@@ -75,20 +74,13 @@ RouterCreation: `
         name: (identifier) @prefix_kw
         value: (string) @prefix))))
 `,
-		ArrowFunc: "",
-		ObjectMethod: "",
+		ArrowFunc:       "",
+		ObjectMethod:    "",
 		CJSExports:      "",
 		CJSDirectExport: "",
-		ESMExport: "",
-		RequireImport: "",
+		ESMExport:       "",
+		RequireImport:   "",
 
-		// ── IMPORTS ────────────────────────────────────────────────────────
-		// Handles:
-		//   from controllers.users import get_user
-		//   from controllers.users import get_user, create_user
-		//
-		// Also handles plain imports:
-		//   import controllers.users
 		ESMImport: `
 (import_from_statement
   module_name: (dotted_name) @import_path
@@ -98,17 +90,6 @@ RouterCreation: `
            alias: (identifier) @alias)])
 `,
 
-		// ── SCHEMA: request.json() ─────────────────────────────────────────
-		// FastAPI: body comes from function parameter type hints (Pydantic)
-		//   async def create_user(user: UserCreate):
-		//       user.name  ← field access on typed param
-		//
-		// Flask: body comes from request.json or request.get_json()
-		//   data = request.get_json()
-		//   data["name"]  or  data.get("name")
-		//
-		// This query captures request.get_json() and request.json calls.
-		// Pydantic model fields are captured separately via ReqBodyDestructure.
 		ReqBody: `
 (call
   function: (attribute
@@ -117,24 +98,12 @@ RouterCreation: `
   arguments: (argument_list))
 `,
 
-		// ── SCHEMA: Pydantic / typed parameter field access ────────────────
-		// Handles FastAPI pattern where body is a typed function parameter:
-		//   async def create_user(user: UserCreate):
-		//       print(user.name)   ← captures "name"
-		//       print(user.email)  ← captures "email"
 		ReqBodyDestructure: `
 (attribute
   object: (identifier) @obj
   attribute: (identifier) @field)
 `,
 
-		// ── SCHEMA: path parameters ────────────────────────────────────────
-		// FastAPI path params come from the function signature directly:
-		//   @app.get("/users/{user_id}")
-		//   async def get_user(user_id: int):  ← user_id is a path param
-		//
-		// This captures typed parameters — filter in Go by checking if
-		// the param name appears in the route path string.
 		ReqParams: `
 (function_definition
   parameters: (parameters
@@ -142,9 +111,7 @@ RouterCreation: `
       (identifier) @param)))
 `,
 
-        // typed param with default — page: int = 1
-        // also catches db: Session = Depends(get_db) — filtered in PostProcessRoute
-        ReqQuery: `
+		ReqQuery: `
 (function_definition
   parameters: (parameters
     (typed_default_parameter
@@ -157,42 +124,42 @@ RouterCreation: `
 	}
 }
 func (p *PythonPlugin) PostProcessRoute(route Route) Route {
-    schema := route.Schema
+	schema := route.Schema
 
-    allParams := append(schema.PathParams, schema.QueryParams...)
+	allParams := append(schema.PathParams, schema.QueryParams...)
 
-    seen := map[string]bool{}
-    var unique []string
-    for _, param := range allParams {
-        if !seen[param] {
-            seen[param] = true
-            unique = append(unique, param)
-        }
-    }
+	seen := map[string]bool{}
+	var unique []string
+	for _, param := range allParams {
+		if !seen[param] {
+			seen[param] = true
+			unique = append(unique, param)
+		}
+	}
 
-    schema.PathParams = nil
-    schema.QueryParams = nil
+	schema.PathParams = nil
+	schema.QueryParams = nil
 
-    for _, param := range unique {
-        if p.isDependsParam(param, route.HandlerCode) {
-            continue
-        }
-        if strings.Contains(route.Path, "{"+param+"}") {
-            schema.PathParams = append(schema.PathParams, param)
-            continue
-        }
-        schema.QueryParams = append(schema.QueryParams, param)
-    }
+	for _, param := range unique {
+		if p.isDependsParam(param, route.HandlerCode) {
+			continue
+		}
+		if strings.Contains(route.Path, "{"+param+"}") {
+			schema.PathParams = append(schema.PathParams, param)
+			continue
+		}
+		schema.QueryParams = append(schema.QueryParams, param)
+	}
 
-    route.Schema = schema
-    return route
+	route.Schema = schema
+	return route
 }
 
 func (p *PythonPlugin) isDependsParam(param string, handlerCode string) bool {
-    for _, line := range strings.Split(handlerCode, "\n") {
-        if strings.Contains(line, param) && strings.Contains(line, "Depends(") {
-            return true
-        }
-    }
-    return false
+	for _, line := range strings.Split(handlerCode, "\n") {
+		if strings.Contains(line, param) && strings.Contains(line, "Depends(") {
+			return true
+		}
+	}
+	return false
 }

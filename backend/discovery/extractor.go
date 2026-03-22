@@ -50,8 +50,6 @@ func (e *Extractor) ExtractRoutes(filePath string) ([]Route, error) {
 		return nil, nil
 	}
 
-	// NewQuery now returns *QueryError not error
-	// access .Message .Row .Column directly for real error info
 	q, qErr := tree_sitter.NewQuery(e.lang, queries.Route)
 	if qErr != nil {
 		return nil, fmt.Errorf("route query failed at row %d col %d: %s",
@@ -120,15 +118,11 @@ func (e *Extractor) resolveHandlerNode(node *tree_sitter.Node, src []byte) (stri
 	}
 }
 
-// ─── SCHEMA EXTRACTION ───────────────────────────────────────────────────────
-
 func (e *Extractor) ExtractSchema(node *tree_sitter.Node, src []byte) Schema {
 	var schema Schema
 	seen := map[string]bool{}
 	queries := e.plugin.Queries()
 
-	// kwFilter applied in Go since #eq? predicate is unreliable in go-tree-sitter
-	// kwCapture is the capture name to check, kwFilter is the required value
 	collectFiltered := func(queryStr, captureName, kwCapture, kwFilter string, target *[]string) {
 		if queryStr == "" {
 			return
@@ -148,7 +142,6 @@ func (e *Extractor) ExtractSchema(node *tree_sitter.Node, src []byte) Schema {
 		for m := matches.Next(); m != nil; m = matches.Next() {
 			captures := helpers.GetCaptureMap(m, q, src)
 
-			// Go-side keyword filter replaces unreliable #eq? predicate
 			if kwFilter != "" && captures[kwCapture] != kwFilter {
 				continue
 			}
@@ -163,7 +156,6 @@ func (e *Extractor) ExtractSchema(node *tree_sitter.Node, src []byte) Schema {
 		}
 	}
 
-	// filter @kw == "body" / "params" / "query" in Go
 	collectFiltered(queries.ReqBody, "field", "kw", "body", &schema.BodyFields)
 	collectFiltered(queries.ReqBodyDestructure, "field", "kw", "body", &schema.BodyFields)
 	collectFiltered(queries.ReqParams, "param", "kw", "params", &schema.PathParams)
@@ -309,7 +301,6 @@ func (e *Extractor) ExtractMountPoints(filePath string) ([]MountPoint, error) {
 	for match := matches.Next(); match != nil; match = matches.Next() {
 		captures := helpers.GetCaptureMap(match, q, src)
 
-		// only collect app.use() calls
 		if captures["use"] != "use" {
 			continue
 		}
@@ -317,7 +308,6 @@ func (e *Extractor) ExtractMountPoints(filePath string) ([]MountPoint, error) {
 		prefix := e.plugin.CleanRoutePath(captures["prefix"])
 		routerRef := captures["router_ref"]
 
-		// handle require('./routes/users') — extract file base name
 		if strings.HasPrefix(routerRef, "require(") {
 			routerRef = strings.TrimPrefix(routerRef, "require('")
 			routerRef = strings.TrimPrefix(routerRef, `require("`)
@@ -381,12 +371,10 @@ func (e *Extractor) ExtractRouterPrefixes(filePath string) (map[string]string, e
 		routerName := captures["router_name"]
 		prefix := e.plugin.CleanRoutePath(captures["prefix"])
 
-		// only APIRouter and Blueprint create route groups
 		if routerType != "APIRouter" && routerType != "Blueprint" {
 			continue
 		}
 
-		// FastAPI uses "prefix", Flask uses "url_prefix"
 		if prefixKw != "prefix" && prefixKw != "url_prefix" {
 			continue
 		}

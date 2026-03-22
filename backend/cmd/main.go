@@ -10,5 +10,6 @@ func main() {
 	router := gin.Default()
 
 	router.POST("/parse", gateway.ParseController)
+	router.POST("/executor/run", gateway.RunExecutorController)
 	router.Run(":8080")
 }

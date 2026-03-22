@@ -2,29 +2,21 @@ package discovery
 
 import (
 	"strings"
-
 	"api-tester/backend/helpers"
-
 	tree_sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
-// ResolveHandlers fills in HandlerCode for any route that only has a HandlerName
-// this covers both same-file and cross-file controller patterns
 func (e *Extractor) ResolveHandlers(routes []Route, table SymbolTable, baseDir string) []Route {
 	for i, route := range routes {
-		// skip routes that already have inline handler code
 		if route.HandlerCode != "" {
 			continue
 		}
-		// skip routes with no handler name to look up
 		if route.HandlerName == "" {
 			continue
 		}
 
 		name := route.HandlerName
 
-		// handle controller.method style: "userController.getUser"
-		// look up just the method name part
 		if strings.Contains(name, ".") {
 			parts := strings.SplitN(name, ".", 2)
 			name = parts[1]
@@ -38,8 +30,6 @@ func (e *Extractor) ResolveHandlers(routes []Route, table SymbolTable, baseDir s
 		routes[i].HandlerCode = sym.Code
 		routes[i].HandlerFile = sym.File
 
-		// re-extract schema from the resolved function body
-		// (the original extraction ran on an identifier node which has no body)
 		tree, src, err := e.ParseFile(sym.File)
 		if err != nil {
 			continue

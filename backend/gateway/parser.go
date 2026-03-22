@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type ParseRequest struct {
@@ -25,6 +26,15 @@ func ParseController(c *gin.Context) {
 		})
 		return
 	}
-	res := discovery.Handler(req.FilePath)
-	c.JSON(200, res)
+	routes := discovery.Handler(req.FilePath)
+	res := struct {
+		ProjectID     string         `json:"project_id"`
+		SchemaPayload map[string]any `json:"schema_payload"`
+	}{
+		ProjectID: uuid.NewString(),
+		SchemaPayload: map[string]any{
+			"routes": routes,
+		},
+	}
+	c.JSON(http.StatusOK, res)
 }

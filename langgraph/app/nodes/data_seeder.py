@@ -41,7 +41,7 @@ def data_seeder_node(state: AgentState) -> Dict:
         {endpoints}
 
         TASK:
-        Generate 3 realistic, distinct JSON records that could be used as valid payload bodies for these endpoints.
+        Generate 1 realistic JSON payload for EACH of the provided endpoints.
         Do not use simple dummy text like "string". Use realistic names, emails, statuses, etc.
 
         Return ONLY a JSON object with a single key 'demo_records' containing a list of these objects.

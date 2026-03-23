@@ -69,11 +69,10 @@ def test_generator_node(state: AgentState) -> Dict:
     chain = prompt | llm | parser
 
     try:
-        batch_plans = plans[:5] 
         result = chain.invoke({
             "schema": json.dumps(schema, indent=2),
             "demo_data": json.dumps(demo_data, indent=2),
-            "plans": json.dumps(batch_plans, indent=2),
+            "plans": json.dumps(plans, indent=2),
             "format_instructions": parser.get_format_instructions()
         })
         
